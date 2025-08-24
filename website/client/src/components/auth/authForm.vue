@@ -163,6 +163,9 @@
       >
         {{ $t('login') }}
       </div>
+      <div v-if="showSignupError">
+      {{ signupError }}
+      </div>
     </div>
   </div>
 </template>
@@ -240,6 +243,8 @@ export default {
       password: '',
       passwordConfirm: '',
       usernameIssues: [],
+      signupError: '',
+      showSignupError: false,
     };
 
     data.icons = Object.freeze({
@@ -339,32 +344,35 @@ export default {
       }
     },
     async register () {
-      if (!this.email) {
-        window.alert(this.$t('missingEmail')); // eslint-disable-line no-alert
-        return;
+    if (!this.email) {
+      this.showSignupError = true;
+      this.signupError = this.$t('missingEmail');
+      setTimeout(() => { this.showSignupError = false; }, 3000);
+      return;
+    }
+    if (this.password !== this.passwordConfirm) {
+      this.showSignupError = true;
+      this.signupError = this.$t('passwordConfirmationMatch');
+      setTimeout(() => { this.showSignupError = false; }, 3000);
+      return;
+    }
+    try {
+      await this.$store.dispatch('auth:register', {
+        username: this.username,
+        email: this.email,
+        password: this.password,
+        passwordConfirm: this.passwordConfirm,
+      });
+      await this.finishAuth();
+    } catch (e) {
+      if (e.response.data.data && e.response.data.data.errors) {
+        const message = e.response.data.data.errors.map(error => `${error.message}\n`).join('');
+        this.showSignupError = true;
+        this.signupError = message;
+        setTimeout(() => { this.showSignupError = false; }, 3000);
       }
-
-      if (this.password !== this.passwordConfirm) {
-        window.alert(this.$t('passwordConfirmationMatch')); // eslint-disable-line no-alert
-        return;
-      }
-
-      try {
-        await this.$store.dispatch('auth:register', {
-          username: this.username,
-          email: this.email,
-          password: this.password,
-          passwordConfirm: this.passwordConfirm,
-        });
-
-        await this.finishAuth();
-      } catch (e) {
-        if (e.response.data.data && e.response.data.data.errors) {
-          const message = e.response.data.data.errors.map(error => `${error.message}\n`);
-          window.alert(message); // eslint-disable-line no-alert
-        }
-      }
-    },
+    }
+  },
     async finishAuth () {
       setUpAxios();
 
